@@ -1,0 +1,124 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler, PolynomialFeatures, LabelEncoder, StandardScaler
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.metrics import mean_squared_error, r2_score, classification_report, accuracy_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+
+df = pd.read_csv("Auto Sales data.csv")
+print(df.head())
+
+df['TOTAL_PRICE'] = df['QUANTITYORDERED'] * df['PRICEEACH']
+print("DataFrame after adding the 'TOTAL_PRICE' column:")
+print(df[['QUANTITYORDERED', 'PRICEEACH', 'TOTAL_PRICE']].head())
+
+features = ['QUANTITYORDERED', 'PRICEEACH', 'MSRP', 'DAYS_SINCE_LASTORDER']
+target = 'SALES'
+
+X = df[features]
+y = df[target]
+
+scaler = MinMaxScaler()
+X_scaled = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+lr_model = LinearRegression()
+lr_model.fit(X_train, y_train)
+
+poly_features = PolynomialFeatures(degree=2)
+X_train_poly = poly_features.fit_transform(X_train)
+X_test_poly = poly_features.transform(X_test)
+
+poly_reg_model = LinearRegression()
+poly_reg_model.fit(X_train_poly, y_train)
+
+ridge_reg_model = Ridge(alpha=1.0)
+ridge_reg_model.fit(X_train, y_train)
+
+poly_ridge_reg_model = Ridge(alpha=1.0)
+poly_ridge_reg_model.fit(X_train_poly, y_train)
+
+y_pred_lr = lr_model.predict(X_test)
+mse_lr = mean_squared_error(y_test, y_pred_lr)
+rmse_lr = np.sqrt(mse_lr)
+r2_lr = r2_score(y_test, y_pred_lr)
+
+y_pred_poly = poly_reg_model.predict(X_test_poly)
+mse_poly = mean_squared_error(y_test, y_pred_poly)
+rmse_poly = np.sqrt(mse_poly)
+r2_poly = r2_score(y_test, y_pred_poly)
+
+y_pred_ridge = ridge_reg_model.predict(X_test)
+mse_ridge = mean_squared_error(y_test, y_pred_ridge)
+rmse_ridge = np.sqrt(mse_ridge)
+r2_ridge = r2_score(y_test, y_pred_ridge)
+
+y_pred_poly_ridge = poly_ridge_reg_model.predict(X_test_poly)
+mse_poly_ridge = mean_squared_error(y_test, y_pred_poly_ridge)
+rmse_poly_ridge = np.sqrt(mse_poly_ridge)
+r2_poly_ridge = r2_score(y_test, y_pred_poly_ridge)
+
+
+models_data = {
+    'Linear Regression': y_pred_lr,
+    'Polynomial Regression': y_pred_poly,
+    'Ridge Regression': y_pred_ridge,
+    'Polynomial Ridge Regression': y_pred_poly_ridge
+}
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+fig.suptitle('Actual vs. Predicted Sales for Different Regression Models', fontsize=16)
+axes_flat = axes.flatten()
+
+for i, (model_name, y_pred) in enumerate(models_data.items()):
+    ax = axes_flat[i]
+    sns.scatterplot(x=y_test, y=y_pred, ax=ax)
+    ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], '--r', linewidth=2)
+    ax.set_title(f'{model_name}')
+    ax.set_xlabel('Actual Sales')
+    ax.set_ylabel('Predicted Sales')
+    ax.grid(True)
+
+plt.show()
+
+metrics_df = pd.DataFrame({
+    'Model': ['Linear', 'Polynomial', 'Ridge', 'Poly Ridge'],
+    'MSE': [mse_lr, mse_poly, mse_ridge, mse_poly_ridge],
+    'RMSE': [rmse_lr, rmse_poly, rmse_ridge, rmse_poly_ridge],
+    'R-squared': [r2_lr, r2_poly, r2_ridge, r2_poly_ridge]
+})
+
+print("\nFinal Regression Model Performance Comparison:")
+print(metrics_df.round(4).to_string(index=False))
+
+X_class = df[['QUANTITYORDERED', 'PRICEEACH', 'MSRP', 'DAYS_SINCE_LASTORDER']]
+y_class = df['DEALSIZE']
+
+le = LabelEncoder()
+y_class_encoded = le.fit_transform(y_class)
+
+X_class_scaled = MinMaxScaler().fit_transform(X_class)
+
+X_train_class, X_test_class, y_train_class, y_test_class = train_test_split(X_class_scaled, y_class_encoded, test_size=0.2, random_state=42)
+
+dt_classifier = DecisionTreeClassifier(random_state=42)
+dt_classifier.fit(X_train_class, y_train_class)
+
+svm_classifier = SVC(random_state=42)
+svm_classifier.fit(X_train_class, y_train_class)
+
+y_pred_dt = dt_classifier.predict(X_test_class)
+print("Comparision between Decision Tree and SVM:")
+print("Decision Tree Classifier Report:")
+print(classification_report(y_test_class, y_pred_dt, target_names=le.classes_))
+print(f"Accuracy: {accuracy_score(y_test_class, y_pred_dt):.4f}")
+
+print("\nSVM Classifier Report:")
+y_pred_svm = svm_classifier.predict(X_test_class)
+print(classification_report(y_test_class, y_pred_svm, target_names=le.classes_))
+print(f"Accuracy: {accuracy_score(y_test_class, y_pred_svm):.4f}")
