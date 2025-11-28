@@ -1,0 +1,81 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv("Auto Sales data.csv")
+print(df.head())
+print(df.info())
+
+print(df.describe())
+print(df.isnull().sum())
+
+print(df.duplicated().sum())
+
+train_df = df.copy()
+
+for col in ['QUANTITYORDERED', 'PRICEEACH', 'SALES', 'DAYS_SINCE_LASTORDER', 'MSRP']:
+    print(f"{col}:")
+    print("Mean:", train_df[col].mean())
+    print("Median:", train_df[col].median())
+    print("Mode:", train_df[col].mode()[0])
+    print("Standard Deviation:", train_df[col].std())
+    print("-------")
+
+df.hist(bins=30, figsize=(15,10))
+plt.tight_layout()
+plt.show()
+
+top10_countries = (
+    train_df.groupby("COUNTRY")["SALES"]
+    .mean()
+    .sort_values(ascending=False)
+    .head(10)
+    .reset_index()
+)
+plt.figure(figsize=(12,6))
+sns.barplot(
+    x="COUNTRY",
+    y="SALES",
+    data=top10_countries,
+    estimator=np.mean,
+    errorbar=None
+)
+plt.xticks(rotation=45)
+plt.title("Top 10 Countries by Average Automobile Purchase Amount")
+plt.show()
+
+plt.figure(figsize=(10,6))
+sns.boxplot(data=train_df[['QUANTITYORDERED', 'PRICEEACH', 'SALES', 'DAYS_SINCE_LASTORDER', 'MSRP']])
+plt.title("Boxplot of Automobile Purchase Amount")
+plt.show()
+
+Q1_car = train_df['SALES'].quantile(0.25)
+Q3_car = train_df['SALES'].quantile(0.75)
+IQR_car = Q3_car - Q1_car
+outliers_car = train_df[(train_df['SALES'] < (Q1_car - 1.5 * IQR_car)) | (train_df['SALES'] > (Q3_car + 1.5 * IQR_car))]
+print("Number of Outliers in Auto Sales:", outliers_car.shape[0])
+print("Outliers in Auto Sales:")
+display(outliers_car.head()) # Note: 'display' works in Jupyter/Colab environments; use print() for standard scripts
+
+Q1_net = train_df['PRICEEACH'].quantile(0.25)
+Q3_net = train_df['PRICEEACH'].quantile(0.75)
+IQR_net = Q3_net - Q1_net
+outliers_net = train_df[(train_df['PRICEEACH'] < (Q1_net - 1.5 * IQR_net)) | (train_df['PRICEEACH'] > (Q3_net + 1.5 * IQR_net))]
+print("\nNumber of Outliers in Price Each:", outliers_net.shape[0])
+print("Outliers in Price Each:")
+display(outliers_net.head())
+
+sns.histplot(train_df['QUANTITYORDERED'], kde=True)
+plt.title("Univariate Distribution of quantity ordered")
+plt.show()
+
+sns.scatterplot(x="QUANTITYORDERED", y="SALES", data=train_df)
+plt.title("Bivariate Analysis: Quantity ordered vs Sales")
+plt.show()
+
+plt.figure(figsize=(10,8))
+corr_matrix = train_df.select_dtypes(include=['number']).corr()
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+plt.title("Multivariate Correlation Heatmap")
+plt.show()
