@@ -1,0 +1,66 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+
+movies = pd.read_csv("movies.csv")
+ratings = pd.read_csv("ratings.csv")
+
+print("Movies dataset:\n", movies.head())
+print("Ratings dataset:\n", ratings.head())
+
+print("Movies dataset info:")
+print(movies.info())
+print("\nRatings dataset description:")
+print(ratings.describe())
+
+movie_data = pd.merge(ratings, movies, on='movieId')
+print(movie_data.head())
+
+print("Total ratings:", movie_data.shape[0])
+print("Unique users:", movie_data['userId'].nunique())
+print("Unique movies:", movie_data['movieId'].nunique())
+
+plt.figure(figsize=(6,4))
+sns.countplot(x='rating', data=movie_data)
+plt.title('Ratings Distribution')
+plt.xlabel('Rating')
+plt.ylabel('Count')
+plt.show()
+
+top_movies = movie_data.groupby('title')['rating'].count().sort_values(ascending=False).head(10)
+print("Top 10 most rated movie-")
+print(top_movies)
+
+avg_ratings = movie_data.groupby('title')['rating'].mean().sort_values(ascending=False).head(10)
+print("Top 10 movies by average rating.")
+print(avg_ratings)
+
+movie_data.isnull().sum()
+
+user_movie_matrix = movie_data.pivot_table(index='userId', columns='title', values='rating')
+
+user_movie_matrix.fillna(0, inplace=True)
+
+movie_similarity = cosine_similarity(user_movie_matrix.T)
+movie_similarity_df = pd.DataFrame(movie_similarity, index=user_movie_matrix.columns, columns=user_movie_matrix.columns)
+print(movie_similarity_df.head())
+
+def recommend_movies(movie_name, num_recommendations=5):
+    if movie_name not in movie_similarity_df:
+        return "Movie not found in dataset."
+    similar_scores = movie_similarity_df[movie_name].sort_values(ascending=False)[1:num_recommendations+1]
+    return similar_scores
+
+movie_name = "Toy Story (1995)"
+recommendations = recommend_movies(movie_name, 5)
+print(f"Top 5 movies similar to '{movie_name}':\n")
+print(recommendations)
+
+recommendations.plot(kind='barh', color='skyblue')
+plt.title(f"Movies similar to {movie_name}")
+plt.xlabel("Similarity Score")
+plt.ylabel("Movies")
+plt.show()
