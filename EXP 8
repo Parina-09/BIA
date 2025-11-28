@@ -1,0 +1,98 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+df = pd.read_csv("telecom_churn.csv")
+
+print("Sample data:")
+print(df.head())
+
+print("Dataset info:")
+print(df.info())
+
+print("\nMissing values per column:")
+print(df.isnull().sum())
+
+sns.countplot(x='Churn', data=df, palette='Set2')
+plt.title("Distribution of Churn")
+plt.show()
+
+churn_rate = df['Churn'].mean() * 100
+print(f"Churn rate: {churn_rate:.2f}% of customers")
+
+numeric_cols = ['AccountWeeks','DataUsage','CustServCalls','DayMins','DayCalls','MonthlyCharge','OverageFee']
+
+df[numeric_cols].hist(figsize=(12,8), bins=20, color='skyblue')
+plt.suptitle("Feature Distributions")
+plt.show()
+
+plt.figure(figsize=(10,8))
+sns.heatmap(df.corr(), annot=True, cmap='coolwarm', fmt=".2f")
+plt.title("Correlation Heatmap")
+plt.show()
+
+X = df.drop('Churn', axis=1)
+y = df['Churn']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print(f"Training samples: {len(X_train)}, Test samples: {len(X_test)}")
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+print("Features scaled successfully.")
+
+dt = DecisionTreeClassifier(random_state=42, max_depth=4)
+dt.fit(X_train_scaled, y_train)
+
+print("Decision Tree trained successfully.")
+
+y_pred_dt = dt.predict(X_test_scaled)
+
+print("Decision Tree Accuracy:", accuracy_score(y_test, y_pred_dt))
+print("\nClassification Report:\n", classification_report(y_test, y_pred_dt))
+
+cm_dt = confusion_matrix(y_test, y_pred_dt)
+sns.heatmap(cm_dt, annot=True, fmt='d', cmap='Blues', xticklabels=['No Churn','Churn'], yticklabels=['No Churn','Churn'])
+plt.title("Decision Tree Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
+
+plt.figure(figsize=(20,10))
+plot_tree(dt, feature_names=X.columns, class_names=['No Churn','Churn'], filled=True, rounded=True)
+plt.show()
+
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train_scaled, y_train)
+
+y_pred_rf = rf.predict(X_test_scaled)
+print("Random Forest Accuracy:", accuracy_score(y_test, y_pred_rf))
+print("\nClassification Report:\n", classification_report(y_test, y_pred_rf))
+
+cm_rf = confusion_matrix(y_test, y_pred_rf)
+sns.heatmap(cm_rf, annot=True, fmt='d', cmap='Greens', xticklabels=['No Churn','Churn'], yticklabels=['No Churn','Churn'])
+plt.title("Random Forest Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
+
+corr_churn = df.corr()['Churn'].sort_values(ascending=False)
+top_positive = corr_churn[corr_churn > 0.05].sort_values(ascending=False)
+top_negative = corr_churn[corr_churn < -0.05].sort_values()
+
+print("Top factors increasing churn:")
+for feature, corr_value in top_positive.items():
+    if feature != 'Churn':
+        print(f"- {feature} (correlation: {corr_value:.2f})")
+
+print("\nTop factors reducing churn:")
+for feature, corr_value in top_negative.items():
+    print(f"- {feature} (correlation: {corr_value:.2f})")
