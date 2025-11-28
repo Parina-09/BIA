@@ -2,8 +2,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.feature_extraction.text import CountVectorizer
 
 movies = pd.read_csv("movies.csv")
 ratings = pd.read_csv("ratings.csv")
@@ -44,23 +42,22 @@ user_movie_matrix = movie_data.pivot_table(index='userId', columns='title', valu
 
 user_movie_matrix.fillna(0, inplace=True)
 
-movie_similarity = cosine_similarity(user_movie_matrix.T)
-movie_similarity_df = pd.DataFrame(movie_similarity, index=user_movie_matrix.columns, columns=user_movie_matrix.columns)
-print(movie_similarity_df.head())
+movie_similarity_pearson = user_movie_matrix.corr(method='pearson')
+print(movie_similarity_pearson.head())
 
-def recommend_movies(movie_name, num_recommendations=5):
-    if movie_name not in movie_similarity_df:
+def recommend_movies_pearson(movie_name, num_recommendations=5):
+    if movie_name not in movie_similarity_pearson:
         return "Movie not found in dataset."
-    similar_scores = movie_similarity_df[movie_name].sort_values(ascending=False)[1:num_recommendations+1]
+    similar_scores = movie_similarity_pearson[movie_name].dropna().sort_values(ascending=False)[1:num_recommendations+1]
     return similar_scores
 
 movie_name = "Toy Story (1995)"
-recommendations = recommend_movies(movie_name, 5)
-print(f"Top 5 movies similar to '{movie_name}':\n")
-print(recommendations)
+recommendations_pearson = recommend_movies_pearson(movie_name, 5)
+print(f"Top 5 movies similar to '{movie_name}' using Pearson correlation:\n")
+print(recommendations_pearson)
 
-recommendations.plot(kind='barh', color='skyblue')
-plt.title(f"Movies similar to {movie_name}")
-plt.xlabel("Similarity Score")
+recommendations_pearson.plot(kind='barh', color='orange')
+plt.title(f"Movies similar to {movie_name} (Pearson Correlation)")
+plt.xlabel("Correlation Score")
 plt.ylabel("Movies")
 plt.show()
