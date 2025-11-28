@@ -1,0 +1,65 @@
+import pandas as pd
+from apyori import apriori
+import matplotlib.pyplot as plt
+import seaborn as sns
+import networkx as nx
+
+df = pd.read_csv('bread basket.csv')
+print(df.head())
+
+print(df.info())
+
+df['date_time'] = pd.to_datetime(df['date_time'], format='%d-%m-%Y %H:%M')
+
+df['Item'] = df['Item'].str.strip()
+
+print(df.describe())
+
+df.drop_duplicates(inplace=True)
+print(df.isnull().sum())
+
+all_products = df['Item'].unique()
+print("Total products:", len(all_products))
+
+total_transactions = df['Transaction'].nunique()
+print("Total transactions:", total_transactions)
+
+top_items = df['Item'].value_counts().head(20)
+
+plt.figure(figsize=(12, 8))
+sns.barplot(x=top_items.values, y=top_items.index, palette='viridis')
+plt.title('Top 20 Most Frequent Items', fontsize=18)
+plt.xlabel('Number of Transactions', fontsize=12)
+plt.ylabel('Item', fontsize=12)
+plt.show()
+
+transactions = df.groupby(['Transaction'])['Item'].apply(list).tolist()
+
+rules = apriori(transactions, min_support=0.0003, min_confidence=0.5, min_lift=3, min_length=2)
+association_results = list(rules)
+print("Found {} association rules.".format(len(association_results)))
+
+def get_rule_df(results):
+    df_rules = pd.DataFrame(columns=['Rule', 'Support', 'Confidence', 'Lift'])
+    for result in results:
+        for ordered_stat in result.ordered_statistics:
+            if ordered_stat.lift > 1:
+                antecedent = ', '.join(list(ordered_stat.items_base))
+                consequent = ', '.join(list(ordered_stat.items_add))
+                rule = f"{antecedent} -> {consequent}"
+                df_rules.loc[len(df_rules)] = [rule, result.support, ordered_stat.confidence, ordered_stat.lift]
+    return df_rules
+
+df_rules = get_rule_df(association_results)
+df_rules = df_rules.sort_values(by='Lift', ascending=False)
+display(df_rules.head(10)) # Use print(df_rules.head(10)) in standard scripts
+
+top_rules_lift = df_rules.sort_values(by='Lift', ascending=False).head(10)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(x="Lift", y="Rule", data=top_rules_lift, palette="plasma")
+plt.title("Top 10 Association Rules by Lift")
+plt.xlabel("Lift")
+plt.ylabel("Rule")
+plt.tight_layout()
+plt.show()
