@@ -1,0 +1,110 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.metrics import mean_squared_error
+import numpy as np
+from datetime import datetime
+import warnings
+
+df = pd.read_csv('AAPL.csv')
+print(df.head())
+print(df.info())
+
+df['Date'] = pd.to_datetime(df['Date'])
+df.set_index('Date', inplace=True)
+
+print(df.describe())
+
+df.hist(bins=30, figsize=(15,10))
+plt.tight_layout()
+plt.show()
+
+df.drop_duplicates(inplace=True)
+print(df.isnull().sum())
+
+columns_to_clean = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
+for col in columns_to_clean:
+    df[col] = df[col].replace(0, np.nan)
+
+plt.figure(figsize=(14, 7))
+plt.plot(df['Close'], label='Closing Price')
+plt.title('Stock Closing Price Over Time')
+plt.xlabel('Date')
+plt.ylabel('Price')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+time_series = df['Close']
+train_size = int(len(time_series) * 0.8)
+train, test = time_series[0:train_size], time_series[train_size:len(time_series)]
+
+warnings.filterwarnings("ignore")
+
+best_aic = np.inf
+best_order = None
+best_model = None
+
+for p in range(3):
+    for d in range(3):
+        for q in range(3):
+            try:
+                model = ARIMA(train, order=(p, d, q))
+                results = model.fit()
+                if results.aic < best_aic:
+                    best_aic = results.aic
+                    best_order = (p, d, q)
+                    best_model = results
+                print(f'ARIMA({p}, {d}, {q}) AIC: {results.aic}')
+            except:
+                continue
+
+print(f'\nBest ARIMA order: {best_order} with AIC: {best_aic}')
+
+model = ARIMA(train, order=best_order)
+model_fit = model.fit()
+print(model_fit.summary())
+
+forecast_steps_test = len(test)
+forecast = model_fit.get_forecast(steps=forecast_steps_test)
+forecast_series = forecast.predicted_mean
+conf_int = forecast.conf_int()
+
+mse = mean_squared_error(test, forecast_series)
+print(f'\nMean Squared Error (MSE) on Test Set: {mse:.4f}')
+
+print("\n--- Evaluation Report ---")
+print(f"Model: ARIMA{best_order}")
+print(f"Number of training samples: {len(train)}")
+print(f"Number of testing samples: {len(test)}")
+print(f"MSE on Test Set: {mse:.4f}")
+
+last_date = df.index[-1].to_pydatetime()
+target_date = datetime(2023, 12, 31)
+future_forecast_steps = (target_date - last_date).days
+
+future_forecast = model_fit.get_forecast(steps=future_forecast_steps)
+future_forecast_series = future_forecast.predicted_mean
+future_conf_int = future_forecast.conf_int()
+
+plt.figure(figsize=(14, 7))
+
+plt.plot(time_series, label='Observed (Full Dataset)')
+
+plt.plot(train.index, model_fit.predict(start=0, end=len(train)-1), color='green', label='In-sample Predictions')
+
+plt.plot(test.index, test, color='orange', label='Test Set')
+
+plt.plot(forecast_series.index, forecast_series, color='red', label='Forecast')
+plt.fill_between(conf_int.index, conf_int.iloc[:, 0], conf_int.iloc[:, 1], color='red', alpha=0.1)
+
+plt.plot(future_forecast_series.index, future_forecast_series, color='purple', linestyle='--', label='Future Forecast')
+plt.fill_between(future_conf_int.index, future_conf_int.iloc[:, 0], future_conf_int.iloc[:, 1], color='purple', alpha=0.1)
+
+plt.title('ARIMA Model Forecasting')
+plt.xlabel('Date')
+plt.ylabel('Close Price')
+plt.legend()
+plt.grid(True)
+plt.show()
