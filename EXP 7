@@ -1,0 +1,121 @@
+import pandas as pd
+import re
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import nltk
+from nltk.corpus import stopwords
+
+nltk.download('stopwords')
+
+df = pd.read_csv("Financial Sentiment.csv")
+
+print("Sample data:")
+print(df.head())
+
+print("Dataset info:")
+print(df.info())
+
+print("\nMissing values per column:")
+print(df.isnull().sum())
+
+stop_words = set(stopwords.words('english'))
+
+def clean_text(text):
+    text = str(text).lower()  # lowercase
+    text = re.sub(r'http\S+|www\S+','', text)  # remove URLs
+    text = re.sub(r'[^a-z\s]','', text)  # remove punctuation/numbers
+    text = ' '.join([word for word in text.split() if word not in stop_words])  # remove stopwords
+    return text
+
+df['cleaned_sentence'] = df['Sentence'].apply(clean_text)
+
+print("Preprocessed financial sentences:")
+print(df[['Sentence','cleaned_sentence']].head())
+
+df['word_count'] = df['cleaned_sentence'].apply(lambda x: len(x.split()))
+df['char_count'] = df['cleaned_sentence'].apply(len)
+
+sns.histplot(df['word_count'], bins=20, kde=True, color='skyblue')
+plt.title("Distribution of Words per Sentence")
+plt.show()
+
+sns.histplot(df['char_count'], bins=20, kde=True, color='lightgreen')
+plt.title("Distribution of Characters per Sentence")
+plt.show()
+
+print("Unique sentiment classes:", df['Sentiment'].unique())
+
+sentiment_mapping = {'positive': 1, 'negative': -1, 'neutral': 0}
+df['sentiment_label'] = df['Sentiment'].map(sentiment_mapping)
+
+print("Encoded sentiment labels:")
+print(df[['Sentiment','sentiment_label']].head())
+
+X = df['cleaned_sentence']
+y = df['sentiment_label']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print(f"Training samples: {len(X_train)}, Test samples: {len(X_test)}")
+
+vectorizer = TfidfVectorizer()
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_test_tfidf = vectorizer.transform(X_test)
+
+tfidf_df = pd.DataFrame(X_train_tfidf.toarray(), columns=vectorizer.get_feature_names_out())
+
+print("TF-IDF feature sample (train, first 5 rows):")
+print(tfidf_df.head())
+
+print("\nFeature Names:")
+print(vectorizer.get_feature_names_out())
+
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train_tfidf, y_train)
+
+print("Random Forest trained successfully.")
+
+y_pred = rf.predict(X_test_tfidf)
+
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Negative','Neutral','Positive'], yticklabels=['Negative','Neutral','Positive'])
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.show()
+
+sentiment_counts = df['Sentiment'].value_counts()
+total_sentences = sentiment_counts.sum()
+percentages = (sentiment_counts / total_sentences * 100).round(2)
+
+sns.barplot(x=sentiment_counts.index, y=sentiment_counts.values, palette='Set2')
+plt.title("Overall Sentiment Distribution")
+plt.ylabel("Number of Financial Sentences")
+plt.show()
+
+for sentiment, count in sentiment_counts.items():
+    print(f"{sentiment}: {count} sentences ({percentages[sentiment]}% of total)")
+
+print("\nInsights derived from the data:")
+
+if 'positive' in percentages and percentages['positive'] > 50:
+    print("- Majority of financial sentences are positive, indicating strong investor confidence or favorable financial news.")
+elif 'positive' in percentages:
+    print(f"- Positive sentences make up {percentages['positive']}% of the dataset, reflecting moderate optimism in financial reporting.")
+
+if 'negative' in percentages and percentages['negative'] > 30:
+    print("- A significant proportion of negative sentences suggests concerns about losses, risks, or market volatility.")
+elif 'negative' in percentages:
+    print(f"- Negative sentences make up {percentages['negative']}% of the dataset, showing limited concerns or risks highlighted.")
+
+if 'neutral' in percentages and percentages['neutral'] > 20:
+    print("- Neutral sentences are common, representing factual reporting without expressed sentiment.")
+elif 'neutral' in percentages:
+    print(f"- Neutral sentences make up {percentages['neutral']}% of the dataset, showing many factual/uncategorized statements.")
