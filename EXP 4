@@ -1,0 +1,104 @@
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv('Auto Sales data.csv')
+print(df.head())
+
+features = ['QUANTITYORDERED', 'PRICEEACH', 'SALES', 'DAYS_SINCE_LASTORDER', 'MSRP']
+df_features = df[features].copy()
+df_features.dropna(inplace=True)
+
+scaler = StandardScaler()
+scaled_features = scaler.fit_transform(df_features)
+
+optimal_k = 3
+kmeans = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+df_features['Cluster'] = kmeans.fit_predict(scaled_features)
+
+silhouette_avg = silhouette_score(scaled_features, df_features['Cluster'])
+print(f"Silhouette Score for K-Means (K={optimal_k}): {silhouette_avg:.4f}")
+
+print("K-Means Evaluation Report")
+print("\nCluster Sizes:")
+cluster_sizes = df_features['Cluster'].value_counts().sort_index()
+print(cluster_sizes)
+
+print("\nCluster Mean Values:")
+cluster_means = df_features.groupby('Cluster')[features].mean()
+print(cluster_means)
+
+feature1 = 'SALES'
+feature2 = 'QUANTITYORDERED'
+
+idx1 = features.index(feature1)
+idx2 = features.index(feature2)
+
+centroids = kmeans.cluster_centers_
+
+plt.figure(figsize=(10, 7))
+sns.scatterplot(
+    x=scaled_features[:, idx1],
+    y=scaled_features[:, idx2],
+    hue=df_features['Cluster'],
+    palette='viridis',
+    legend='full',
+    s=50,
+    alpha=0.7
+)
+
+plt.scatter(
+    centroids[:, idx1],
+    centroids[:, idx2],
+    marker='X',
+    s=200,
+    color='red',
+    label='Centroids',
+    edgecolors='black'
+)
+
+plt.title(f'K-Means Clustering with Centroids (K={optimal_k})')
+plt.xlabel(f'Scaled {feature1}')
+plt.ylabel(f'Scaled {feature2}')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+print("Elbow Method for Optimal K")
+inertia = []
+k_range = range(1, 11)
+for k in k_range:
+    kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+    kmeans.fit(scaled_features)
+    inertia.append(kmeans.inertia_)
+
+plt.figure(figsize=(8, 6))
+plt.plot(k_range, inertia, marker='o', linestyle='--')
+plt.title('Elbow Method for Optimal K')
+plt.xlabel('Number of Clusters (K)')
+plt.ylabel('Inertia')
+plt.xticks(k_range)
+plt.grid(True)
+plt.show()
+
+print("Silhouette Scores for Different K values")
+silhouette_scores = []
+
+for k in range(2, 11):
+    kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+    kmeans.fit(scaled_features)
+    score = silhouette_score(scaled_features, kmeans.labels_)
+    silhouette_scores.append(score)
+    print(f"K = {k}: Silhouette Score = {score:.4f}")
+
+plt.figure(figsize=(8, 6))
+plt.plot(range(2, 11), silhouette_scores, marker='o', linestyle='--')
+plt.title('Silhouette Score vs. K')
+plt.xlabel('Number of Clusters (K)')
+plt.ylabel('Silhouette Score')
+plt.xticks(range(2, 11))
+plt.grid(True)
+plt.show()
