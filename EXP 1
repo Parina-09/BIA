@@ -1,0 +1,35 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv("sales_data.csv")
+print(df.head())
+print(df.info())
+
+print(df.describe())
+
+df.hist(bins=30, figsize=(15,10))
+plt.tight_layout()
+plt.show()
+
+df.drop_duplicates(inplace=True)
+
+train_df = df.copy()
+
+correlation_matrix = train_df.corr(numeric_only=True)
+print(correlation_matrix["Sales_Amount"].sort_values(ascending=False))
+
+columns_to_clean = ['Sales_Amount', 'Quantity_Sold', 'Unit_Cost', 'Unit_Price', 'Discount']
+for col in columns_to_clean:
+    train_df[col] = train_df[col].replace(0, np.nan)
+
+print(train_df.isnull().sum())
+
+train_df.fillna(train_df.median(numeric_only=True), inplace=True)
+
+plt.figure(figsize=(12, 10))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title("Correlation Heatmap of Sales Data")
+plt.tight_layout()
+plt.show()
